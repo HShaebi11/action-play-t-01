@@ -1,3 +1,82 @@
+// Global variables for site-wide peer connection
+window.globalPeer = null;
+window.globalConnection = null;
+window.isConnected = false;
+
+// Initialize global peer connection
+function initGlobalPeerConnection(deviceType = 'mac') {
+    const peerId = deviceType === 'mac' ? 'mac-device' : 'phone-device';
+    const connectTo = deviceType === 'mac' ? 'phone-device' : 'mac-device';
+
+    try {
+        // Create peer with specific ID if not already created
+        if (!window.globalPeer) {
+            window.globalPeer = new Peer(peerId);
+            
+            window.globalPeer.on('open', function(id) {
+                console.log('Global Peer.js connected with ID:', id);
+                
+                // Try to connect to the other device
+                const conn = window.globalPeer.connect(connectTo);
+                conn.on('open', function() {
+                    window.globalConnection = conn;
+                    window.isConnected = true;
+                    console.log('Connected to', connectTo);
+                    
+                    // Handle incoming data
+                    conn.on('data', function(data) {
+                        handleGlobalData(data);
+                    });
+                });
+            });
+
+            window.globalPeer.on('connection', function(conn) {
+                window.globalConnection = conn;
+                window.isConnected = true;
+                console.log('Received connection from', conn.peer);
+                
+                conn.on('data', function(data) {
+                    handleGlobalData(data);
+                });
+            });
+
+            window.globalPeer.on('error', function(err) {
+                console.error('Peer.js error:', err);
+                window.isConnected = false;
+            });
+        }
+    } catch (error) {
+        console.error('Error initializing global peer:', error);
+    }
+}
+
+// Handle incoming data globally
+function handleGlobalData(data) {
+    if (data.type === 'position') {
+        // Update any active Three.js scenes
+        if (window.activeThreeScenes) {
+            window.activeThreeScenes.forEach(scene => {
+                if (scene.cube) {
+                    scene.cube.position.set(data.x, data.y, data.z);
+                }
+            });
+        }
+    }
+    // Dispatch custom event for other parts of the site
+    const event = new CustomEvent('peerData', { detail: data });
+    window.dispatchEvent(event);
+}
+
+// Function to send data through the global connection
+window.sendPeerData = function(data) {
+    if (window.globalConnection && window.isConnected) {
+        window.globalConnection.send(data);
+    }
+};
+
+// Keep track of all Three.js scenes
+window.activeThreeScenes = new Set();
+
 // Three.js Scene Setup Function with Peer.js Integration
 function setupThreeJSScene(containerId = 'three-render') {
     // Get the container element
@@ -130,58 +209,61 @@ function setupThreeJSScene(containerId = 'three-render') {
         cube.position.set(position.x, position.y, position.z);
     }
 
-    // Function to initialize Peer.js with hardcoded IDs
-    function initPeerJS() {
-        try {
-            // Create radio buttons for device selection
-            const deviceSelector = document.createElement('div');
-            deviceSelector.style.marginBottom = '10px';
-            deviceSelector.innerHTML = `
-                <label style="margin-right: 10px;">
-                    <input type="radio" name="device" value="mac" checked> Mac
-                </label>
-                <label>
-                    <input type="radio" name="device" value="phone"> Phone
-                </label>
+    // Function to initialize device selection UI
+    function initDeviceSelection() {
+        // Create radio buttons for device selection
+        const deviceSelector = document.createElement('div');
+        deviceSelector.style.marginBottom = '10px';
+        deviceSelector.innerHTML = `
+            <label style="margin-right: 10px;">
+                <input type="radio" name="device" value="mac" checked> Mac
+            </label>
+            <label>
+                <input type="radio" name="device" value="phone"> Phone
+            </label>
+        `;
+        uiContainer.insertBefore(deviceSelector, peerIdDisplay);
+
+        // Create connect button
+        const connectButton = document.createElement('button');
+        connectButton.textContent = 'Set Device Type';
+        connectButton.style.cssText = `
+            padding: 5px 10px;
+            background: #4CAF50;
+            border: none;
+            border-radius: 3px;
+            color: white;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+        `;
+        uiContainer.appendChild(connectButton);
+
+        // Initialize connection based on device selection
+        connectButton.onclick = function() {
+            const isMac = document.querySelector('input[name="device"][value="mac"]').checked;
+            const deviceType = isMac ? 'mac' : 'phone';
+            
+            // Initialize global peer connection
+            initGlobalPeerConnection(deviceType);
+            
+            // Update UI
+            peerIdDisplay.innerHTML = `Device: <strong>${isMac ? 'Mac' : 'Phone'}</strong>`;
+            statusDisplay.innerHTML = 'Status: Connecting to other device...';
+            
+            // Hide device selection after setting
+            deviceSelector.style.display = 'none';
+            connectButton.style.display = 'none';
+            
+            // Show connection status
+            const connectionStatus = document.createElement('div');
+            connectionStatus.style.marginTop = '10px';
+            connectionStatus.innerHTML = `
+                <div style="color: #4CAF50;">✓ Device type set</div>
+                <div style="font-size: 0.9em; margin-top: 5px;">Waiting for connection...</div>
             `;
-            uiContainer.insertBefore(deviceSelector, peerIdDisplay);
-
-            // Create connect button
-            const connectButton = document.createElement('button');
-            connectButton.textContent = 'Connect Devices';
-            connectButton.style.cssText = `
-                padding: 5px 10px;
-                background: #4CAF50;
-                border: none;
-                border-radius: 3px;
-                color: white;
-                cursor: pointer;
-                margin-top: 10px;
-                width: 100%;
-            `;
-            uiContainer.appendChild(connectButton);
-
-            // Initialize peer based on device selection
-            connectButton.onclick = function() {
-                const isMac = document.querySelector('input[name="device"][value="mac"]').checked;
-                const peerId = isMac ? 'mac-device' : 'phone-device';
-                const connectTo = isMac ? 'phone-device' : 'mac-device';
-
-                // Create peer with specific ID
-                peer = new Peer(peerId);
-                
-                peer.on('open', function(id) {
-                    console.log('Peer.js connected with ID:', id);
-                    peerIdDisplay.innerHTML = `Device: <strong>${isMac ? 'Mac' : 'Phone'}</strong>`;
-                    statusDisplay.innerHTML = 'Status: Connecting to other device...';
-                    
-                    // Automatically connect to the other device
-                    const conn = peer.connect(connectTo);
-                    conn.on('open', function() {
-                        connection = conn;
-                        handleConnection(conn);
-                    });
-                });
+            uiContainer.appendChild(connectionStatus);
+        };
             
             peer.on('error', function(err) {
                 console.error('Peer.js error:', err);
@@ -279,8 +361,11 @@ function setupThreeJSScene(containerId = 'three-render') {
 
     window.addEventListener('resize', onWindowResize);
 
-    // Initialize Peer.js and position monitoring
-    initPeerJS();
+    // Initialize device selection if not already connected
+    if (!window.isConnected) {
+        initDeviceSelection();
+    }
+    
     setupPositionMonitoring();
     
     // Initial position update
@@ -289,19 +374,20 @@ function setupThreeJSScene(containerId = 'three-render') {
     // Start animation
     animate();
 
-    // Return the scene objects for external access
-    return {
+    // Add this scene to global tracking
+    const sceneObject = {
         scene,
         camera,
         renderer,
         cube,
         controls,
         animate,
-        updateCubePosition,
-        sendPositionData,
-        peer,
-        connection
+        updateCubePosition
     };
+    window.activeThreeScenes.add(sceneObject);
+
+    // Return the scene objects for external access
+    return sceneObject;
 }
 
 // Helper function to connect to another peer
