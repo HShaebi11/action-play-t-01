@@ -1,4 +1,4 @@
-// Three.js Scene Setup Function
+// Three.js Scene Setup Function with Peer.js Integration
 function setupThreeJSScene(containerId = 'three-render') {
     // Get the container element
     const container = document.getElementById(containerId);
@@ -6,6 +6,65 @@ function setupThreeJSScene(containerId = 'three-render') {
         console.error('Container element not found. Please create a div with id="' + containerId + '"');
         return;
     }
+
+    // Create UI elements for Peer.js connection
+    const uiContainer = document.createElement('div');
+    uiContainer.style.cssText = `
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        border-radius: 5px;
+        color: white;
+        font-family: Arial, sans-serif;
+        z-index: 1000;
+    `;
+
+    // Create Peer ID display
+    const peerIdDisplay = document.createElement('div');
+    peerIdDisplay.id = 'peer-id-display';
+    peerIdDisplay.style.marginBottom = '10px';
+    peerIdDisplay.innerHTML = 'Your ID: Connecting...';
+    uiContainer.appendChild(peerIdDisplay);
+
+    // Create input for remote peer ID
+    const peerInput = document.createElement('input');
+    peerInput.type = 'text';
+    peerInput.id = 'remote-peer-id';
+    peerInput.placeholder = 'Enter remote Peer ID';
+    peerInput.style.cssText = `
+        width: 200px;
+        padding: 5px;
+        margin-bottom: 5px;
+        border: none;
+        border-radius: 3px;
+    `;
+    uiContainer.appendChild(peerInput);
+
+    // Create connect button
+    const connectButton = document.createElement('button');
+    connectButton.textContent = 'Connect';
+    connectButton.style.cssText = `
+        padding: 5px 10px;
+        margin-left: 5px;
+        background: #4CAF50;
+        border: none;
+        border-radius: 3px;
+        color: white;
+        cursor: pointer;
+    `;
+    uiContainer.appendChild(connectButton);
+
+    // Create connection status display
+    const statusDisplay = document.createElement('div');
+    statusDisplay.id = 'connection-status';
+    statusDisplay.style.marginTop = '10px';
+    statusDisplay.innerHTML = 'Status: Not connected';
+    uiContainer.appendChild(statusDisplay);
+
+    // Add to document
+    document.body.appendChild(uiContainer);
 
     // Scene setup
     const scene = new THREE.Scene();
@@ -67,11 +126,144 @@ function setupThreeJSScene(containerId = 'three-render') {
         controls.dampingFactor = 0.05;
     }
 
+    // Peer.js Integration
+    let peer = null;
+    let connection = null;
+    
+    // Function to get position values from DOM elements
+    function getPositionValues() {
+        const posX = document.getElementById('position-x');
+        const posY = document.getElementById('position-y');
+        const posZ = document.getElementById('position-z');
+        
+        let x = 0, y = 0, z = 0;
+        
+        if (posX) {
+            x = parseFloat(posX.value || posX.textContent || 0);
+        }
+        if (posY) {
+            y = parseFloat(posY.value || posY.textContent || 0);
+        }
+        if (posZ) {
+            z = parseFloat(posZ.value || posZ.textContent || 0);
+        }
+        
+        return { x, y, z };
+    }
+
+    // Function to update cube position
+    function updateCubePosition() {
+        const position = getPositionValues();
+        cube.position.set(position.x, position.y, position.z);
+    }
+
+    // Function to initialize Peer.js
+    function initPeerJS() {
+        try {
+            // Create a new peer connection
+            peer = new Peer();
+            
+            peer.on('open', function(id) {
+                console.log('Peer.js connected with ID:', id);
+                peerIdDisplay.innerHTML = `Your ID: <strong>${id}</strong>`;
+                statusDisplay.innerHTML = 'Status: Ready to connect';
+                
+                // Set up connect button click handler
+                connectButton.onclick = function() {
+                    const remoteId = peerInput.value.trim();
+                    if (remoteId) {
+                        statusDisplay.innerHTML = 'Status: Connecting...';
+                        const conn = peer.connect(remoteId);
+                        conn.on('open', function() {
+                            connection = conn;
+                            handleConnection(conn);
+                        });
+                    }
+                };
+                
+                // Listen for incoming connections
+                peer.on('connection', function(conn) {
+                    connection = conn;
+                    handleConnection(conn);
+                });
+            });
+            
+            peer.on('error', function(err) {
+                console.error('Peer.js error:', err);
+                statusDisplay.innerHTML = `Status: Error - ${err.type}`;
+            });
+            
+        } catch (error) {
+            console.error('Peer.js not available:', error);
+            statusDisplay.innerHTML = 'Status: Peer.js not available';
+        }
+    }
+
+    // Function to handle peer connection
+    function handleConnection(conn) {
+        statusDisplay.innerHTML = 'Status: Connected!';
+        
+        conn.on('data', function(data) {
+            if (data.type === 'position') {
+                cube.position.set(data.x, data.y, data.z);
+            }
+        });
+
+        conn.on('close', function() {
+            statusDisplay.innerHTML = 'Status: Disconnected';
+            connection = null;
+        });
+    }
+
+    // Function to send position data
+    function sendPositionData() {
+        if (connection && connection.open) {
+            const position = getPositionValues();
+            connection.send({
+                type: 'position',
+                x: position.x,
+                y: position.y,
+                z: position.z
+            });
+        }
+    }
+
+    // Set up position monitoring
+    function setupPositionMonitoring() {
+        // Monitor position elements for changes
+        const positionElements = ['position-x', 'position-y', 'position-z'];
+        
+        positionElements.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                // Listen for input changes
+                if (element.tagName === 'INPUT') {
+                    element.addEventListener('input', updateCubePosition);
+                    element.addEventListener('change', updateCubePosition);
+                }
+                // Listen for content changes (for non-input elements)
+                else {
+                    const observer = new MutationObserver(updateCubePosition);
+                    observer.observe(element, {
+                        childList: true,
+                        subtree: true,
+                        characterData: true
+                    });
+                }
+            }
+        });
+        
+        // Also update position on any click events (for Webflow interactions)
+        document.addEventListener('click', function() {
+            setTimeout(updateCubePosition, 100);
+        });
+    }
+
     // Animation loop
     function animate() {
         requestAnimationFrame(animate);
 
-        // Rotate the cube
+        // Rotate the cube (optional - you can comment this out if you want static rotation)
         cube.rotation.x += 0.01;
         cube.rotation.y += 0.01;
 
@@ -92,6 +284,13 @@ function setupThreeJSScene(containerId = 'three-render') {
 
     window.addEventListener('resize', onWindowResize);
 
+    // Initialize Peer.js and position monitoring
+    initPeerJS();
+    setupPositionMonitoring();
+    
+    // Initial position update
+    updateCubePosition();
+
     // Start animation
     animate();
 
@@ -102,8 +301,51 @@ function setupThreeJSScene(containerId = 'three-render') {
         renderer,
         cube,
         controls,
-        animate
+        animate,
+        updateCubePosition,
+        sendPositionData,
+        peer,
+        connection
     };
+}
+
+// Helper function to connect to another peer
+function connectToPeer(peerId) {
+    const scene = window.threeJSScene;
+    if (scene && scene.peer) {
+        const conn = scene.peer.connect(peerId);
+        conn.on('open', function() {
+            scene.connection = conn;
+            console.log('Connected to peer:', peerId);
+            
+            conn.on('data', function(data) {
+                if (data.type === 'position') {
+                    scene.cube.position.set(data.x, data.y, data.z);
+                }
+            });
+        });
+    }
+}
+
+// Function to manually update cube position
+function updateCubePositionManually(x, y, z) {
+    const scene = window.threeJSScene;
+    if (scene && scene.cube) {
+        scene.cube.position.set(x, y, z);
+    }
+}
+
+// Function to get current cube position
+function getCubePosition() {
+    const scene = window.threeJSScene;
+    if (scene && scene.cube) {
+        return {
+            x: scene.cube.position.x,
+            y: scene.cube.position.y,
+            z: scene.cube.position.z
+        };
+    }
+    return null;
 }
 
 // Alternative function for a more complex scene with multiple objects
@@ -339,3 +581,19 @@ function createCustomScene(containerId, options = {}) {
         animate
     };
 }
+
+// Auto-initialize the Three.js scene when the page loads
+function initThreeJS() {
+    // Wait for the DOM to be fully loaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            window.threeJSScene = setupThreeJSScene();
+        });
+    } else {
+        // DOM is already loaded
+        window.threeJSScene = setupThreeJSScene();
+    }
+}
+
+// Call the initialization function
+initThreeJS();
