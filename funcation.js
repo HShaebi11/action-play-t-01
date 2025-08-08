@@ -14,47 +14,20 @@ function setupThreeJSScene(containerId = 'three-render') {
         top: 10px;
         left: 10px;
         background: rgba(0, 0, 0, 0.7);
-        padding: 10px;
-        border-radius: 5px;
+        padding: 15px;
+        border-radius: 8px;
         color: white;
         font-family: Arial, sans-serif;
         z-index: 1000;
+        min-width: 200px;
     `;
 
     // Create Peer ID display
     const peerIdDisplay = document.createElement('div');
     peerIdDisplay.id = 'peer-id-display';
     peerIdDisplay.style.marginBottom = '10px';
-    peerIdDisplay.innerHTML = 'Your ID: Connecting...';
+    peerIdDisplay.innerHTML = 'Select your device:';
     uiContainer.appendChild(peerIdDisplay);
-
-    // Create input for remote peer ID
-    const peerInput = document.createElement('input');
-    peerInput.type = 'text';
-    peerInput.id = 'remote-peer-id';
-    peerInput.placeholder = 'Enter remote Peer ID';
-    peerInput.style.cssText = `
-        width: 200px;
-        padding: 5px;
-        margin-bottom: 5px;
-        border: none;
-        border-radius: 3px;
-    `;
-    uiContainer.appendChild(peerInput);
-
-    // Create connect button
-    const connectButton = document.createElement('button');
-    connectButton.textContent = 'Connect';
-    connectButton.style.cssText = `
-        padding: 5px 10px;
-        margin-left: 5px;
-        background: #4CAF50;
-        border: none;
-        border-radius: 3px;
-        color: white;
-        cursor: pointer;
-    `;
-    uiContainer.appendChild(connectButton);
 
     // Create connection status display
     const statusDisplay = document.createElement('div');
@@ -157,36 +130,58 @@ function setupThreeJSScene(containerId = 'three-render') {
         cube.position.set(position.x, position.y, position.z);
     }
 
-    // Function to initialize Peer.js
+    // Function to initialize Peer.js with hardcoded IDs
     function initPeerJS() {
         try {
-            // Create a new peer connection
-            peer = new Peer();
-            
-            peer.on('open', function(id) {
-                console.log('Peer.js connected with ID:', id);
-                peerIdDisplay.innerHTML = `Your ID: <strong>${id}</strong>`;
-                statusDisplay.innerHTML = 'Status: Ready to connect';
+            // Create radio buttons for device selection
+            const deviceSelector = document.createElement('div');
+            deviceSelector.style.marginBottom = '10px';
+            deviceSelector.innerHTML = `
+                <label style="margin-right: 10px;">
+                    <input type="radio" name="device" value="mac" checked> Mac
+                </label>
+                <label>
+                    <input type="radio" name="device" value="phone"> Phone
+                </label>
+            `;
+            uiContainer.insertBefore(deviceSelector, peerIdDisplay);
+
+            // Create connect button
+            const connectButton = document.createElement('button');
+            connectButton.textContent = 'Connect Devices';
+            connectButton.style.cssText = `
+                padding: 5px 10px;
+                background: #4CAF50;
+                border: none;
+                border-radius: 3px;
+                color: white;
+                cursor: pointer;
+                margin-top: 10px;
+                width: 100%;
+            `;
+            uiContainer.appendChild(connectButton);
+
+            // Initialize peer based on device selection
+            connectButton.onclick = function() {
+                const isMac = document.querySelector('input[name="device"][value="mac"]').checked;
+                const peerId = isMac ? 'mac-device' : 'phone-device';
+                const connectTo = isMac ? 'phone-device' : 'mac-device';
+
+                // Create peer with specific ID
+                peer = new Peer(peerId);
                 
-                // Set up connect button click handler
-                connectButton.onclick = function() {
-                    const remoteId = peerInput.value.trim();
-                    if (remoteId) {
-                        statusDisplay.innerHTML = 'Status: Connecting...';
-                        const conn = peer.connect(remoteId);
-                        conn.on('open', function() {
-                            connection = conn;
-                            handleConnection(conn);
-                        });
-                    }
-                };
-                
-                // Listen for incoming connections
-                peer.on('connection', function(conn) {
-                    connection = conn;
-                    handleConnection(conn);
+                peer.on('open', function(id) {
+                    console.log('Peer.js connected with ID:', id);
+                    peerIdDisplay.innerHTML = `Device: <strong>${isMac ? 'Mac' : 'Phone'}</strong>`;
+                    statusDisplay.innerHTML = 'Status: Connecting to other device...';
+                    
+                    // Automatically connect to the other device
+                    const conn = peer.connect(connectTo);
+                    conn.on('open', function() {
+                        connection = conn;
+                        handleConnection(conn);
+                    });
                 });
-            });
             
             peer.on('error', function(err) {
                 console.error('Peer.js error:', err);
