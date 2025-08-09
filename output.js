@@ -1,13 +1,17 @@
 alert("Hello World, this is the output.js file");
 
-// ======= Basic setup =======
+// Get container
 const container = document.getElementById('three-render');
+
+// Create scene
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0a0a);
 
+// Camera
 const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
 camera.position.set(3, 2, 5);
 
+// Renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -17,80 +21,83 @@ container.appendChild(renderer.domElement);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-// Lights
-const ambient = new THREE.AmbientLight(0xffffff, 0.6);
-scene.add(ambient);
-const key = new THREE.DirectionalLight(0xffffff, 1.0);
-key.position.set(5, 6, 4);
-scene.add(key);
+// Lighting
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambientLight);
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+directionalLight.position.set(5, 6, 4);
+scene.add(directionalLight);
 
 // Helpers
-const grid = new THREE.GridHelper(20, 20, 0x333333, 0x222222);
-grid.position.y = -0.5;
-scene.add(grid);
-const axes = new THREE.AxesHelper(2);
-scene.add(axes);
+const gridHelper = new THREE.GridHelper(20, 20, 0x333333, 0x222222);
+gridHelper.position.y = -0.5;
+scene.add(gridHelper);
 
-// Geometry — plane + cube
-const planeGeo = new THREE.PlaneGeometry(20, 20);
-const planeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 1, metalness: 0 });
-const plane = new THREE.Mesh(planeGeo, planeMat);
+const axesHelper = new THREE.AxesHelper(2);
+scene.add(axesHelper);
+
+// Plane
+const planeGeometry = new THREE.PlaneGeometry(20, 20);
+const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 1, metalness: 0 });
+const plane = new THREE.Mesh(planeGeometry, planeMaterial);
 plane.rotation.x = -Math.PI / 2;
 plane.position.y = -0.5;
 plane.receiveShadow = true;
 scene.add(plane);
 
-const boxGeo = new THREE.BoxGeometry(1, 1, 1);
-const boxMat = new THREE.MeshStandardMaterial({ color: 0x4da3ff, roughness: 0.4, metalness: 0.2 });
-const cube = new THREE.Mesh(boxGeo, boxMat);
+// Cube
+const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
+const boxMaterial = new THREE.MeshStandardMaterial({ color: 0x4da3ff, roughness: 0.4, metalness: 0.2 });
+const cube = new THREE.Mesh(boxGeometry, boxMaterial);
 cube.castShadow = true;
 scene.add(cube);
 
-// Responsive sizing
-function resize() {
-  const w = container.clientWidth;
-  const h = container.clientHeight;
-  camera.aspect = w / h;
+// Responsive resize
+function onWindowResize() {
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  camera.aspect = width / height;
   camera.updateProjectionMatrix();
-  renderer.setSize(w, h, false);
+  renderer.setSize(width, height, false);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 }
-window.addEventListener('resize', resize);
-resize();
+window.addEventListener('resize', onWindowResize);
+onWindowResize();
 
 // Animation loop
 let spin = true;
-let last = performance.now();
-let frames = 0;
-let fpsTimer = 0;
-const statsEl = document.getElementById('stats');
+let lastTime = performance.now();
+let frameCount = 0;
+let fpsAccumulator = 0;
+const statsElement = document.getElementById('stats');
 
-function tick(now) {
-  requestAnimationFrame(tick);
-  const dt = (now - last) / 1000;
-  last = now;
+function animate(now) {
+  requestAnimationFrame(animate);
+  const delta = (now - lastTime) / 1000;
+  lastTime = now;
 
   // FPS counter
-  frames++;
-  fpsTimer += dt;
-  if (fpsTimer >= 0.5 && statsEl) {
-    const fps = Math.round(frames / fpsTimer);
-    statsEl.textContent = fps + ' fps';
-    frames = 0;
-    fpsTimer = 0;
+  frameCount++;
+  fpsAccumulator += delta;
+  if (fpsAccumulator >= 0.5 && statsElement) {
+    const fps = Math.round(frameCount / fpsAccumulator);
+    statsElement.textContent = fps + ' fps';
+    frameCount = 0;
+    fpsAccumulator = 0;
   }
 
   if (spin) {
-    cube.rotation.y += dt * 0.8;
-    cube.rotation.x += dt * 0.3;
+    cube.rotation.y += delta * 0.8;
+    cube.rotation.x += delta * 0.3;
   }
 
   controls.update();
   renderer.render(scene, camera);
 }
-requestAnimationFrame(tick);
+requestAnimationFrame(animate);
 
-// External hook for updates
+// External update hook
 window.updateCube = ({ x, y, z, rx, ry, rz, s } = {}) => {
   if (x !== undefined) cube.position.x = x;
   if (y !== undefined) cube.position.y = y;
@@ -101,15 +108,15 @@ window.updateCube = ({ x, y, z, rx, ry, rz, s } = {}) => {
   if (s !== undefined) cube.scale.setScalar(s);
 };
 
-// Toggle spin button
+// Toggle spin
 document.getElementById('toggleSpin')?.addEventListener('click', () => {
   spin = !spin;
 });
 
-// Reduce motion preference
-const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-if (mq.matches) spin = false;
-mq.addEventListener?.('change', (e) => { if (e.matches) spin = false; });
+// Reduce motion
+const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+if (mediaQuery.matches) spin = false;
+mediaQuery.addEventListener?.('change', (e) => { if (e.matches) spin = false; });
 
 const peer = new Peer('output1'); // fixed ID for output
 peer.on('open', id => console.log('Output ready as', id));
