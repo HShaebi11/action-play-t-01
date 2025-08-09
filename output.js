@@ -3,9 +3,6 @@ alert("Hello World, this is the output.js file");
 const peer = new Peer('output1'); // fixed ID for output
 peer.on('open', id => console.log('Output ready as', id));
 
-import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-
 // ======= Basic setup =======
 const container = document.getElementById('three-render');
 const scene = new THREE.Scene();
