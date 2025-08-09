@@ -1,0 +1,1 @@
+alert("Hello World, this is the output.js file");
