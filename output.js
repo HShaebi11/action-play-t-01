@@ -1,59 +1,66 @@
-alert("Hello World, this is the output.js file");
+"use strict";
 
-(function () {
-  const container = document.getElementById('three-container');
-  if (!container) return;
+// Minimal Three.js scene with a green cube (no OrbitControls)
+// Loads Three.js from CDN to avoid local dependencies
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setSize(container.clientWidth, container.clientHeight, false);
-  container.appendChild(renderer.domElement);
+function loadThreeFromCdn() {
+  return new Promise((resolve, reject) => {
+    if (window.THREE) {
+      resolve(window.THREE);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/three@0.161.0/build/three.min.js";
+    script.async = true;
+    script.onload = () => resolve(window.THREE);
+    script.onerror = () => reject(new Error("Failed to load three.min.js"));
+    document.head.appendChild(script);
+  });
+}
+
+function start(THREE) {
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  // Ensure page has no margin so canvas fills the window
+  document.body.style.margin = "0";
+  document.body.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
 
   const camera = new THREE.PerspectiveCamera(
-    60,
-    container.clientWidth / container.clientHeight,
+    75,
+    window.innerWidth / window.innerHeight,
     0.1,
     100
   );
-  camera.position.set(2, 2, 3);
-
-  const controls = new THREE.OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-  const dir = new THREE.DirectionalLight(0xffffff, 1);
-  dir.position.set(3, 3, 3);
-  scene.add(dir);
+  camera.position.z = 2;
 
   const geometry = new THREE.BoxGeometry(1, 1, 1);
-  const material = new THREE.MeshStandardMaterial({ color: 0x4e9af1, roughness: 0.4, metalness: 0.1 });
+  const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
   const cube = new THREE.Mesh(geometry, material);
   scene.add(cube);
 
-  function onResize() {
-    const w = container.clientWidth;
-    const h = container.clientHeight;
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h;
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
   }
-  window.addEventListener('resize', onResize);
+  window.addEventListener("resize", onWindowResize);
 
-  function tick() {
-    const t = performance.now() * 0.001;
-    cube.rotation.x = t * 0.4;
-    cube.rotation.y = t * 0.6;
-    controls.update();
+  function animate() {
+    requestAnimationFrame(animate);
+    cube.rotation.x += 0.01;
+    cube.rotation.y += 0.015;
     renderer.render(scene, camera);
-    requestAnimationFrame(tick);
   }
 
-  onResize();
-  tick();
-})();
+  animate();
+}
 
-const Peer = require('peer');
-const peer = new Peer('output1'); // fixed ID for output
-peer.on('open', id => console.log('Output ready as', id));
+window.addEventListener("DOMContentLoaded", () => {
+  loadThreeFromCdn()
+    .then(start)
+    .catch((err) => console.error(err));
+});
