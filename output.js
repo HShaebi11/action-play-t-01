@@ -7,7 +7,7 @@ import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
 
 // ======= Basic setup =======
-const container = document.getElementById('three-root');
+const container = document.getElementById('three-render');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0a0a);
 
