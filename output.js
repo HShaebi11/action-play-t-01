@@ -4,7 +4,7 @@ const peer = new Peer('output1'); // fixed ID for output
 peer.on('open', id => console.log('Output ready as', id));
 
 // ======= Basic setup =======
-const container = document.getElementById('three-render');
+const container = document.getElementById('three-root');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0a0a);
 
@@ -17,7 +17,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 container.appendChild(renderer.domElement);
 
 // Controls
-const controls = new OrbitControls(camera, renderer.domElement);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
 // Lights
@@ -51,7 +51,8 @@ scene.add(cube);
 
 // Responsive sizing
 function resize() {
-  const { clientWidth: w, clientHeight: h } = container;
+  const w = container.clientWidth;
+  const h = container.clientHeight;
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
