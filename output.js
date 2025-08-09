@@ -1,8 +1,5 @@
 alert("Hello World, this is the output.js file");
 
-const peer = new Peer('output1'); // fixed ID for output
-peer.on('open', id => console.log('Output ready as', id));
-
 // ======= Basic setup =======
 const container = document.getElementById('three-root');
 const scene = new THREE.Scene();
@@ -113,3 +110,6 @@ document.getElementById('toggleSpin')?.addEventListener('click', () => {
 const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
 if (mq.matches) spin = false;
 mq.addEventListener?.('change', (e) => { if (e.matches) spin = false; });
+
+const peer = new Peer('output1'); // fixed ID for output
+peer.on('open', id => console.log('Output ready as', id));
