@@ -1,7 +1,7 @@
 alert("Hello World, this is the output.js file");
 
 // ======= Basic setup =======
-const container = document.getElementById('three-root');
+const container = document.getElementById('three-render');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0a0a);
 
